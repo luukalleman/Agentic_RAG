@@ -1,7 +1,6 @@
 # document_processor.py
 from .table_manager import TableManager
 from .pdf_processor import PDFProcessor
-from .qa_processor import QAPairProcessor
 from app.data.models.models import MetaData
 
 from tiktoken import get_encoding
@@ -21,8 +20,7 @@ class DocumentProcessor:
         self.table_manager = TableManager(self.db_handler, self.client)
         self.pdf_processor = PDFProcessor(
             self.table_manager, self.embedding_handler, self.db_handler, self.encoding)
-        self.qa_processor = QAPairProcessor(
-            self.table_manager, self.embedding_handler, self.db_handler, self.client)
+
 
     def _extract_metadata_values(self, metadata):
         return {

@@ -11,7 +11,7 @@ class PDFProcessor:
         self.db_handler = db_handler
         self.encoding = encoding
 
-    def process_pdf(self, file_path, document_title, document_metadata, chunker_type="agentic"):
+    def process_pdf(self, file_path, document_title, document_metadata, chunk_type="agentic"):
         """
         Reads a PDF file, extracts its content, and processes it using the specified chunker type.
         """
@@ -32,16 +32,13 @@ class PDFProcessor:
 
         # Initialize the chunker based on the specified type
         chunker = ChunkerFactory.create_chunker(
-            chunker_type, document_content)
+            chunk_type, document_content)
 
         # Use the chunker to process the document
         structured_results = chunker.process_document()
 
         # Process each chunk group and insert into the database
         for chunk_group in structured_results:
-            # chunk_text = " ".join(
-            #     chunker.sentences[sentence_id - 1] for sentence_id in chunk_group.sentences
-            # )
             chunk_text = chunk_group.sentences  # Use the rewritten text directly
 
             embedding = self.embedding_handler.get_embedding(chunk_text)
@@ -50,7 +47,7 @@ class PDFProcessor:
                 "content": chunk_text,
                 "embedding": embedding,
                 "metadata": json.dumps(document_metadata),
-                "chunking_type": chunker_type  # Add the chunking type to the row
+                "chunking_type": chunk_type  # Add the chunking type to the row
             }
             self.db_handler.insert_row('documents', data)
             self.close()
@@ -59,12 +56,9 @@ class PDFProcessor:
         """
         Extracts text from a PDF file.
         """
-        count = 0
         text = ""
         with open(file_path, 'rb') as pdf_file:
             reader = PyPDF2.PdfReader(pdf_file)
             for page in reader.pages:
-                # if count < 2:
-                #     count += 1
                 text += page.extract_text() + "\n"
         return text

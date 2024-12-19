@@ -5,5 +5,5 @@ from app.config.config import get_db_config, get_embedding_config
 processor = DocumentProcessor(get_db_config(), get_embedding_config())
 
 # To process a PDF document
-pdf_file_path = "data/input/amazon_test_rag.pdf"
-processor.pdf_processor.process_pdf(pdf_file_path, "Amazon Info", {"source": "Amazon PDF"}, chunker_type='agentic')
+pdf_file_path = "data/input/amazon_2023s.pdf"
+processor.pdf_processor.process_pdf(pdf_file_path, "Amazon Info", {"source": "Amazon PDF"}, chunk_type='agentic')

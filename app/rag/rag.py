@@ -205,8 +205,8 @@ class RAGPipeline:
         combined_results = similarity_results + keyword_results
 
         # Perform re-ranking and return the top_k results
-        # return self.rerank_results(query, combined_results, top_k)
-        return combined_results
+        return self.rerank_results(query, combined_results, top_k)
+
 
     def retrieve(self, query, document_type, top_k=6, chunking_type='agentic', method='hybrid'):
         """
