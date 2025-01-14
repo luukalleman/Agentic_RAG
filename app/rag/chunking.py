@@ -62,7 +62,6 @@ class AgenticChunker(BaseChunker):
         )
 
         try:
-            print("Sending batch to LLM for chunk grouping and rewriting...")
             client = openai.OpenAI()
             completion = client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
@@ -72,7 +71,6 @@ class AgenticChunker(BaseChunker):
                 ],
                 response_format=ChunkGroupsDirect,
             )
-            print(completion.choices[0].message.parsed)
             return completion.choices[0].message.parsed
         except Exception as e:
             print(f"An error occurred while calling the LLM: {e}")
@@ -84,7 +82,6 @@ class AgenticChunker(BaseChunker):
         for start in range(0, len(self.sentences), self.batch_size):
             end = start + self.batch_size
             batch_sentences = self.sentences[start:end]
-            print(f"Processing batch {start + 1}-{end}...")
             result = self._process_batch(batch_sentences)
             if result:
                 all_results.extend(result.chunks)
@@ -96,7 +93,6 @@ class AgenticChunker(BaseChunker):
     def process_document(self):
         self.split_into_sentences()
         return self.process_with_llm()
-
 class StaticChunker(BaseChunker):
     """
     A simple static chunker that splits sentences into fixed-size chunks.
@@ -108,19 +104,20 @@ class StaticChunker(BaseChunker):
         current_chunk = []
         current_size = 0
 
-        for sentence_id, sentence in zip(self.sentence_ids, self.sentences):
+        for sentence in self.sentences:  # Use the actual sentence text
             if current_size + len(sentence) <= self.max_chunk_size:
-                current_chunk.append(sentence_id)
+                current_chunk.append(sentence)  # Append actual sentence
                 current_size += len(sentence)
             else:
+                # Append current chunk group with the full sentence text
                 chunks.append(
                     ChunkGroupSchema(
                         chunk_id=len(chunks) + 1,
-                        sentences=current_chunk,
+                        sentences=current_chunk,  # Full sentence list
                         reason="Static chunking by size"
                     )
                 )
-                current_chunk = [sentence_id]
+                current_chunk = [sentence]  # Start new chunk with the sentence
                 current_size = len(sentence)
 
         if current_chunk:
@@ -132,8 +129,6 @@ class StaticChunker(BaseChunker):
                 )
             )
         return chunks
-
-
 class OverlapChunker(BaseChunker):
     """
     An Overlap chunker for hierarchical chunking logic with overlapping chunks.

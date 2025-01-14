@@ -4,8 +4,8 @@ from .pdf_processor import PDFProcessor
 from app.data.models.models import MetaData
 
 from tiktoken import get_encoding
-from data.handlers.embedding_handler import EmbeddingHandler
-from data.handlers.db_handler import DatabaseHandler
+from app.data.handlers.embedding_handler import EmbeddingHandler
+from app.data.handlers.db_handler import DatabaseHandler
 
 from openai import OpenAI
 

@@ -25,19 +25,43 @@ class DatabaseHandler:
         self.cursor.execute(query)
         self.connection.commit()
 
-    def insert_row(self, table_name, data):
+    def insert_row(self, table_name, data, conflict_column=None, update_on_conflict=True):
         """
-        Insert a row into a table.
+        Insert a row into a table, with optional conflict handling.
         Args:
             table_name (str): Name of the table.
             data (dict): Column names and their values.
+            conflict_column (str): The column to check for conflicts (e.g., 'table_name').
+            update_on_conflict (bool): Whether to update the row if a conflict occurs.
         """
         columns = ", ".join(data.keys())
         placeholders = ", ".join(["%s"] * len(data))
         values = tuple(data.values())
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        self.cursor.execute(query, values)
-        self.connection.commit()
+
+        if conflict_column and update_on_conflict:
+            update_clause = ", ".join([f"{col} = EXCLUDED.{col}" for col in data.keys()])
+            query = f"""
+            INSERT INTO {table_name} ({columns}) 
+            VALUES ({placeholders}) 
+            ON CONFLICT ({conflict_column}) 
+            DO UPDATE SET {update_clause}
+            """
+        elif conflict_column:
+            query = f"""
+            INSERT INTO {table_name} ({columns}) 
+            VALUES ({placeholders}) 
+            ON CONFLICT ({conflict_column}) 
+            DO NOTHING
+            """
+        else:
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+        try:
+            self.cursor.execute(query, values)
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()  # Rollback transaction in case of error
+            raise Exception(f"Error inserting row into {table_name}: {str(e)}")
 
     def fetch_data(self, table_name, columns=None, conditions=None, limit=None):
         """

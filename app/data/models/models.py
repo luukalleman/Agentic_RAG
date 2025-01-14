@@ -11,14 +11,16 @@ class TableDescription(BaseModel):
     description: str
 
 
+from pydantic import BaseModel
+from typing import List
+
 class ChunkGroupSchema(BaseModel):
     """
-    JSON schema for a single chunk group.
+    JSON schema for a single chunk group with actual sentence text.
     """
     reason: str
     chunk_id: int
-    sentences: List[int]
-
+    sentences: List[str]  # Changed to store actual text instead of IDs
 
 class ChunkGroups(BaseModel):
     """

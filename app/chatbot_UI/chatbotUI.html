@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot UI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url("https://fonts.googleapis.com/css?family=Raleway|Ubuntu&display=swap");
+        body {
+            background: #E8EBF5;
+            padding: 0;
+            margin: 0;
+            font-family: 'Raleway', sans-serif;
+        }
+        .chat-box {
+            height: 90%;
+            width: 400px;
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            margin: 0 auto;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            z-index: 15;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            background: #fff;
+            border-radius: 15px;
+            visibility: hidden;
+        }
+        .chat-box-header {
+            height: 8%;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5em 1em;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+            background-color: #007bff;
+            color: white;
+        }
+        .chat-box-header h3 {
+            font-family: 'Ubuntu', sans-serif;
+            font-weight: 400;
+        }
+        .chat-box-body {
+            height: 75%;
+            background: #f8f8f8;
+            overflow-y: scroll;
+            padding: 12px;
+        }
+        .chat-box-body-send, .chat-box-body-receive {
+            max-width: 250px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-bottom: 14px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.015);
+        }
+        .chat-box-body-send {
+            background: white;
+            float: right;
+        }
+        .chat-box-body-receive {
+            background: #d1e7ff;
+            float: left;
+        }
+        .chat-box-footer {
+            display: flex;
+            padding: 10px;
+            background: white;
+        }
+        .chat-box-footer input {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+        }
+        .chat-box-footer .send {
+            cursor: pointer;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 50%;
+        }
+        .chat-button {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            margin: 15px;
+            padding: 16px 24px;
+            background: #2C50EF;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .chat-button span::after {
+            content: " Message Us";
+        }
+        .show-chatbox {
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-box" id="chat-box">
+        <div class="chat-box-header">
+            <h3>Message Us</h3>
+            <p class="close-button"><i class="fas fa-times"></i></p>
+        </div>
+        <div class="chat-box-body" id="chat-log"></div>
+        <div class="chat-box-footer">
+            <input type="text" id="user-input" placeholder="Enter your message...">
+            <button class="send" id="send-button"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+    <div class="chat-button" id="chat-button">
+        <span><i class="fas fa-comment"></i></span>
+    </div>
+
+    <script>
+        const apiUrlWithAgent = "https://7ce7-89-99-71-172.ngrok-free.app/api/agent";
+
+        // Toggle chatbox visibility
+        document.getElementById("chat-button").addEventListener("click", function () {
+            document.getElementById("chat-box").classList.toggle("show-chatbox");
+            this.style.display = "none";  // Hide the chat button when the chatbox is open
+        });
+
+        document.querySelector(".close-button").addEventListener("click", function () {
+            document.getElementById("chat-box").classList.remove("show-chatbox");
+            document.getElementById("chat-button").style.display = "block";
+        });
+
+        async function sendMessage() {
+            const userInputElement = document.getElementById("user-input");
+            const chatLogElement = document.getElementById("chat-log");
+
+            const userMessage = userInputElement.value.trim();
+            if (!userMessage) {
+                alert("Please type a message.");
+                return;
+            }
+
+            // Add user message to chat log
+            const userMessageElement = document.createElement("div");
+            userMessageElement.classList.add("chat-box-body-send");
+            userMessageElement.innerHTML = `<p>${userMessage}</p><span>${new Date().toLocaleTimeString()}</span>`;
+            chatLogElement.appendChild(userMessageElement);
+            userInputElement.value = ""; // Clear input
+
+            try {
+                const response = await fetch(apiUrlWithAgent, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        question: userMessage,
+                        agent_id: "TD3I4G1735IPBJR2",
+                        functions: ["look_up_data"]
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Error: ${response.status}`);
+
+                const data = await response.json();
+                const agentResponse = data.response || "Sorry, I couldn't understand your request.";
+
+                const agentMessageElement = document.createElement("div");
+                agentMessageElement.classList.add("chat-box-body-receive");
+                agentMessageElement.innerHTML = `<p>${agentResponse}</p><span>${new Date().toLocaleTimeString()}</span>`;
+                chatLogElement.appendChild(agentMessageElement);
+                chatLogElement.scrollTop = chatLogElement.scrollHeight; // Scroll to the latest message
+            } catch (error) {
+                console.error("Error:", error);
+                const errorMessageElement = document.createElement("div");
+                errorMessageElement.classList.add("chat-box-body-receive");
+                errorMessageElement.innerHTML = `<p><strong>Error:</strong> Unable to reach the agent.</p>`;
+                chatLogElement.appendChild(errorMessageElement);
+            }
+        }
+
+        // Attach send button click event
+        document.getElementById("send-button").addEventListener("click", sendMessage);
+
+        // Attach "Enter" key event
+        document.getElementById("user-input").addEventListener("keypress", function (event) {
+            if (event.key === "Enter") sendMessage();
+        });
+    </script>
+</body>
+</html>

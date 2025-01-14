@@ -24,7 +24,7 @@ class RAGPipeline:
         self.bm25 = None
         self.tokenized_documents = []
 
-    def fetch_data(self, document_type, chunking_type):
+    def fetch_data(self, document_type, chunking_type, agent_id):
         """
         Fetch data from the database based on the document type.
 
@@ -36,8 +36,8 @@ class RAGPipeline:
             list: The retrieved data from the database.
         """
         if document_type == 'documents':
-            conditions = f"chunking_type = '{chunking_type}'"
-            return self.db_handler.fetch_data('documents', columns=['content', 'embedding', 'chunking_type'], conditions=conditions)
+            conditions = f"agent_id = '{agent_id}'"            
+            return self.db_handler.fetch_data('agent_upload_docs', columns=['content', 'embedding', 'chunking_type'], conditions=conditions)
         elif document_type == 'qa_pairs':
             return self.db_handler.fetch_data('qa_pairs', columns=['question', 'answer', 'question_embedding'])
         else:
@@ -88,46 +88,6 @@ class RAGPipeline:
             similarities, key=lambda x: x['similarity'], reverse=True)
         return sorted_results[:top_k]
 
-    def initialize_bm25(self, stored_data, is_qa_pairs):
-        """
-        Initialize the BM25 keyword search model.
-
-        Args:
-            stored_data (list): Data fetched from the database.
-            is_qa_pairs (bool): Whether the data is from QA pairs or document chunks.
-        """
-        self.tokenized_documents = [
-            (record['question'] if is_qa_pairs else record['content']).split()
-            for record in stored_data
-        ]
-        self.bm25 = BM25Okapi(self.tokenized_documents)
-
-    def keyword_search(self, query, stored_data, is_qa_pairs, top_k):
-        """
-        Perform keyword search using BM25.
-
-        Args:
-            query (str): The input query.
-            stored_data (list): Data fetched from the database.
-            is_qa_pairs (bool): Whether the data is from QA pairs or document chunks.
-            top_k (int): Number of results to return.
-
-        Returns:
-            list: Keyword search results.
-        """
-        tokenized_query = query.split()
-        bm25_scores = self.bm25.get_scores(tokenized_query)
-        ranked_indices = np.argsort(bm25_scores)[-top_k:][::-1]
-        results = [
-            {
-                'question': stored_data[i]['question'] if is_qa_pairs else None,
-                'answer': stored_data[i]['answer'] if is_qa_pairs else stored_data[i]['content'],
-                'similarity': bm25_scores[i]
-            }
-            for i in ranked_indices
-        ]
-        return results
-
     def rerank_results(self, query, combined_results, top_k):
         """
         Re-rank the combined results using the Cohere re-ranking API.
@@ -158,7 +118,6 @@ class RAGPipeline:
             top_n=top_k,
             model="rerank-english-v2.0"
         )
-        print("rerank_results: ", rerank_results)
 
         # Map re-ranked results back to original data and update similarity scores
         reranked_combined_results = [
@@ -173,42 +132,8 @@ class RAGPipeline:
         ]
         return reranked_combined_results[:top_k]
 
-    def hybrid_search(self, input_embedding, query, stored_data, is_qa_pairs, top_k):
-        """
-        Perform hybrid search combining similarity and keyword search.
 
-        Args:
-            input_embedding (array): The embedding of the input query.
-            query (str): The input query.
-            stored_data (list): Data fetched from the database.
-            is_qa_pairs (bool): Whether the data is from QA pairs or document chunks.
-            top_k (int): Number of results to return.
-
-        Returns:
-            list: Hybrid search results, including their source ("similarity" or "keyword").
-        """
-        # Get similarity-based results
-        similarity_results = self.calculate_similarities(
-            input_embedding, stored_data, is_qa_pairs, top_k=3
-        )
-        for result in similarity_results:
-            result['source'] = 'similarity'
-
-        # Get keyword-based results
-        keyword_results = self.keyword_search(
-            query, stored_data, is_qa_pairs, top_k=3
-        )
-        for result in keyword_results:
-            result['source'] = 'keyword'
-
-        # Combine results
-        combined_results = similarity_results + keyword_results
-
-        # Perform re-ranking and return the top_k results
-        return self.rerank_results(query, combined_results, top_k)
-
-
-    def retrieve(self, query, document_type, top_k=6, chunking_type='agentic', method='hybrid'):
+    def retrieve(self, query, agent_id, document_type='documents', top_k=3, chunking_type='agentic'):
         """
         Retrieve the most relevant results based on the specified method.
 
@@ -223,24 +148,10 @@ class RAGPipeline:
             list: The top results based on the specified method.
         """
         # Generate embedding for the query (if similarity or hybrid search)
-        input_embedding = None
-        if method in ['similarity', 'hybrid']:
-            input_embedding = self.embedding_handler.get_embedding(query)
+        input_embedding = self.embedding_handler.get_embedding(query)
 
         # Fetch data based on document type
-        stored_data = self.fetch_data(document_type, chunking_type)
+        stored_data = self.fetch_data(document_type, chunking_type, agent_id)
         is_qa_pairs = (document_type == 'qa_pairs')
 
-        # Initialize BM25 for keyword or hybrid search
-        if method in ['keyword', 'hybrid']:
-            self.initialize_bm25(stored_data, is_qa_pairs)
-
-        # Perform the chosen retrieval method
-        if method == 'similarity':
-            return self.calculate_similarities(input_embedding, stored_data, is_qa_pairs, top_k)
-        elif method == 'keyword':
-            return self.keyword_search(query, stored_data, is_qa_pairs, top_k)
-        elif method == 'hybrid':
-            return self.hybrid_search(input_embedding, query, stored_data, is_qa_pairs, top_k)
-        else:
-            raise ValueError(f"Unsupported retrieval method: {method}")
+        return self.calculate_similarities(input_embedding, stored_data, is_qa_pairs, top_k)
